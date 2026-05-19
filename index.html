@@ -412,7 +412,7 @@
         const AZURE_VISION_KEY = "3g3nALQFF0tRTuo3pI8lj1gMCWzm6GJdInDVd347Rwyxbulmf9O3JQQJ99CEAC5T7U2XJ3w3AAAFACOGKkPX";
 
         async function analyzeWithAzure(file) {
-            const url = `${AZURE_VISION_ENDPOINT}vision/v3.2/analyze?visualFeatures=Tags,Description&details=Landmarks&language=en`;
+            const url = `https://corsproxy.io/?${encodeURIComponent(AZURE_VISION_ENDPOINT + 'vision/v3.2/analyze?visualFeatures=Tags,Description&details=Landmarks&language=en')}`;
 
             const arrayBuffer = await file.arrayBuffer();
             const response = await fetch(url, {
