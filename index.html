@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monument Scanner - AI Tourist Guide</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 40%, #2d1b4e 100%);
+            color: #e8e6f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .glow-1 {
+            position: fixed; top: -200px; right: -200px;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(139,69,19,0.15) 0%, transparent 70%);
+            pointer-events: none; z-index: 0;
+        }
+        .glow-2 {
+            position: fixed; bottom: -300px; left: -200px;
+            width: 800px; height: 800px;
+            background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+            pointer-events: none; z-index: 0;
+        }
+
+        .container {
+            position: relative; z-index: 1;
+            max-width: 900px; margin: 0 auto; padding: 40px 20px;
+        }
+
+        /* Header */
+        .header { text-align: center; margin-bottom: 48px; }
+        .header-icon { font-size: 48px; margin-bottom: 8px; }
+        .header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 42px; font-weight: 700;
+            background: linear-gradient(135deg, #d4a574 0%, #f0d9b5 50%, #c4956a 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px; margin-bottom: 8px;
+        }
+        .header .subtitle {
+            color: #8b8ba0; font-size: 14px;
+            letter-spacing: 3px; text-transform: uppercase;
+        }
+        .badges {
+            display: flex; justify-content: center; gap: 12px;
+            margin-top: 20px; flex-wrap: wrap;
+        }
+        .badge {
+            background: rgba(139,69,19,0.15); border: 1px solid rgba(139,69,19,0.3);
+            border-radius: 20px; padding: 5px 14px; font-size: 12px;
+            color: #d4a574; letter-spacing: 0.5px;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed rgba(139,69,19,0.4);
+            border-radius: 24px; padding: 80px 40px;
+            text-align: center; cursor: pointer;
+            background: rgba(255,255,255,0.02);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #d4a574;
+            background: rgba(139,69,19,0.08);
+        }
+        .upload-zone .icon { font-size: 64px; margin-bottom: 16px; opacity: 0.8; }
+        .upload-zone .title { font-size: 20px; font-weight: 600; color: #d4a574; margin-bottom: 8px; }
+        .upload-zone .hint { font-size: 14px; color: #8b8ba0; }
+
+        /* Image Preview */
+        .preview-card {
+            border-radius: 20px; overflow: hidden;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+        }
+        .preview-card img {
+            width: 100%; max-height: 400px;
+            object-fit: cover; display: block;
+        }
+
+        /* Buttons */
+        .buttons { display: flex; gap: 12px; justify-content: center; margin: 24px 0; }
+        .btn-analyze {
+            background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+            color: white; border: none; border-radius: 14px;
+            padding: 16px 48px; font-size: 16px; font-weight: 600;
+            cursor: pointer; letter-spacing: 0.5px;
+            box-shadow: 0 8px 32px rgba(139,69,19,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: inherit;
+        }
+        .btn-analyze:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(139,69,19,0.4);
+        }
+        .btn-reset {
+            background: rgba(255,255,255,0.06);
+            color: #8b8ba0; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px; padding: 16px 32px;
+            font-size: 14px; cursor: pointer;
+            transition: background 0.2s; font-family: inherit;
+        }
+        .btn-reset:hover { background: rgba(255,255,255,0.1); }
+
+        /* Pipeline */
+        .pipeline {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px; padding: 28px;
+            backdrop-filter: blur(10px); margin-top: 24px;
+        }
+        .pipeline h3 {
+            font-size: 12px; text-transform: uppercase;
+            letter-spacing: 3px; color: #8b8ba0; margin-bottom: 20px;
+        }
+        .step {
+            display: flex; align-items: center; gap: 16px;
+            padding: 12px 16px; margin-bottom: 4px;
+            border-radius: 12px; transition: all 0.3s;
+        }
+        .step.active { background: rgba(139,69,19,0.12); }
+        .step-icon {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; transition: all 0.3s;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .step.done .step-icon {
+            background: rgba(34,197,94,0.15);
+            border-color: rgba(34,197,94,0.3);
+        }
+        .step.active .step-icon {
+            background: rgba(139,69,19,0.2);
+            border-color: rgba(139,69,19,0.4);
+        }
+        .step-label { font-size: 14px; }
+        .step.active .step-label { font-weight: 600; }
+        .step.done .step-label { color: #8b8ba0; }
+        .step.pending .step-label { color: #555; }
+        .step-service { font-size: 11px; color: #6b6b80; }
+
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid #d4a574; border-top-color: transparent;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Result Card */
+        .result-card {
+            background: linear-gradient(135deg, rgba(139,69,19,0.12) 0%, rgba(212,165,116,0.06) 100%);
+            border: 1px solid rgba(139,69,19,0.3);
+            border-radius: 20px; padding: 32px;
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.5s ease; margin-top: 24px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .result-header {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+        }
+        .result-header .emoji { font-size: 32px; }
+        .result-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px; font-weight: 700; color: #f0d9b5; margin: 0;
+        }
+        .confidence {
+            background: rgba(34,197,94,0.15); color: #4ade80;
+            padding: 2px 10px; border-radius: 8px; font-size: 12px;
+            border: 1px solid rgba(34,197,94,0.3); display: inline-block; margin-top: 4px;
+        }
+
+        .result-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+        }
+        .result-item {
+            background: rgba(0,0,0,0.2); border-radius: 14px; padding: 16px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .result-item.full { grid-column: 1 / -1; }
+        .result-item .label {
+            font-size: 11px; color: #8b8ba0;
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
+        }
+        .result-item .value { font-size: 16px; color: #c8c8d8; }
+        .result-item .value.price { font-size: 24px; font-weight: 700; color: #f0d9b5; }
+
+        .tech-note {
+            margin-top: 20px; padding: 16px;
+            background: rgba(59,130,246,0.08);
+            border: 1px solid rgba(59,130,246,0.2);
+            border-radius: 12px; font-size: 13px; color: #93c5fd;
+        }
+
+        /* Architecture diagram */
+        .architecture {
+            margin-top: 48px; padding: 32px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+        }
+        .architecture h3 {
+            font-size: 12px; text-transform: uppercase;
+            letter-spacing: 3px; color: #8b8ba0; margin-bottom: 24px;
+            text-align: center;
+        }
+        .arch-flow {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; flex-wrap: wrap;
+        }
+        .arch-node {
+            background: rgba(139,69,19,0.15); border: 1px solid rgba(139,69,19,0.3);
+            border-radius: 12px; padding: 12px 16px;
+            text-align: center; min-width: 120px;
+        }
+        .arch-node .node-icon { font-size: 24px; margin-bottom: 4px; }
+        .arch-node .node-label { font-size: 11px; color: #d4a574; font-weight: 600; }
+        .arch-arrow { color: #555; font-size: 20px; }
+
+        /* Footer */
+        .footer {
+            text-align: center; margin-top: 60px; padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            color: #555; font-size: 12px; line-height: 1.8;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .header h1 { font-size: 28px; }
+            .result-grid { grid-template-columns: 1fr; }
+            .result-item.full { grid-column: 1; }
+            .arch-flow { flex-direction: column; }
+            .arch-arrow { transform: rotate(90deg); }
+            .upload-zone { padding: 40px 20px; }
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-icon">🏛️</div>
+            <h1>Monument Scanner</h1>
+            <p class="subtitle">AI-Powered Tourist Guide</p>
+            <div class="badges">
+                <span class="badge">Blob Storage</span>
+                <span class="badge">AI Vision</span>
+                <span class="badge">Table Storage</span>
+                <span class="badge">Logic Apps</span>
+            </div>
+        </div>
+
+        <!-- Upload Zone -->
+        <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
+            <div class="icon">📸</div>
+            <div class="title">Drop a photo of any monument</div>
+            <div class="hint">or click to browse &bull; JPG, PNG supported</div>
+        </div>
+
+        <!-- Preview + Processing -->
+        <div id="previewSection" class="hidden">
+            <div class="preview-card">
+                <img id="previewImage" src="" alt="Uploaded monument">
+            </div>
+
+            <div class="buttons">
+                <button id="analyzeBtn" class="btn-analyze" onclick="startAnalysis()">
+                    🔍 Analyze Monument
+                </button>
+                <button class="btn-reset" onclick="resetAll()">↻ New photo</button>
+            </div>
+
+            <!-- Pipeline Steps -->
+            <div id="pipelineSection" class="pipeline hidden">
+                <h3>Azure Pipeline</h3>
+                <div id="steps"></div>
+            </div>
+
+            <!-- Result -->
+            <div id="resultSection" class="hidden"></div>
+        </div>
+
+        <!-- Architecture Diagram -->
+        <div class="architecture">
+            <h3>System Architecture</h3>
+            <div class="arch-flow">
+                <div class="arch-node">
+                    <div class="node-icon">📸</div>
+                    <div class="node-label">Photo Upload</div>
+                </div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node">
+                    <div class="node-icon">📦</div>
+                    <div class="node-label">Blob Storage</div>
+                </div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node">
+                    <div class="node-icon">⚡</div>
+                    <div class="node-label">Logic Apps</div>
+                </div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node">
+                    <div class="node-icon">🧠</div>
+                    <div class="node-label">AI Vision</div>
+                </div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node">
+                    <div class="node-icon">💰</div>
+                    <div class="node-label">Table Storage</div>
+                </div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-node">
+                    <div class="node-icon">📊</div>
+                    <div class="node-label">Result JSON</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            Cloud Computing Project &bull; University of Gdansk &bull; dr Dariusz Kralewski<br>
+            Azure Blob Storage &bull; Azure AI Vision &bull; Azure Table Storage &bull; Azure Logic Apps
+        </div>
+    </div>
+
+    <script>
+        // Monument database (mirrors Azure Table Storage)
+        const MONUMENTS = {
+            "Eiffel Tower": { normal_price: "36.70 EUR", reduced_price: "18.40 EUR", time: "9:30-23:00", comments: "Summit access, book online 60 days ahead" },
+            "Colosseum": { normal_price: "18 EUR", reduced_price: "4 EUR", time: "9:00-19:00", comments: "Combined ticket with Forum and Palatine" },
+            "Big Ben": { normal_price: "0", reduced_price: "0", time: "24/7", comments: "Outside view only, no public access inside" },
+            "Statue of Liberty": { normal_price: "25 USD", reduced_price: "18 USD", time: "9:00-17:00", comments: "Ferry from Battery Park required" },
+            "Brandenburg Gate": { normal_price: "0", reduced_price: "0", time: "24/7", comments: "Free, symbol of Berlin reunification" },
+            "Tower of London": { normal_price: "35 GBP", reduced_price: "17.50 GBP", time: "9:00-17:30", comments: "Crown Jewels included" },
+            "Leaning Tower of Pisa": { normal_price: "20 EUR", reduced_price: "0", time: "9:00-20:00", comments: "Free for under 18, climb 296 steps" },
+            "Sagrada Familia": { normal_price: "26 EUR", reduced_price: "24 EUR", time: "9:00-20:00", comments: "Antoni Gaudi masterpiece, audio guide included" },
+            "Acropolis": { normal_price: "30 EUR", reduced_price: "15 EUR", time: "8:00-20:00", comments: "Combined ticket with other sites available" },
+            "Notre Dame Cathedral": { normal_price: "0", reduced_price: "0", time: "7:50-18:45", comments: "Free entry, tower climb extra fee" },
+            "Taj Mahal": { normal_price: "1300 INR", reduced_price: "0", time: "6:00-18:30", comments: "Closed on Fridays, free for children under 15" },
+            "Great Wall of China": { normal_price: "40 CNY", reduced_price: "20 CNY", time: "7:30-17:30", comments: "Badaling section, varies by section" },
+            "Stonehenge": { normal_price: "26.50 GBP", reduced_price: "15.90 GBP", time: "9:30-17:00", comments: "Audio guide in 10 languages" },
+            "Trevi Fountain": { normal_price: "0", reduced_price: "0", time: "24/7", comments: "Free, traditional coin toss for luck" },
+            "Petra": { normal_price: "50 JOD", reduced_price: "25 JOD", time: "6:00-18:00", comments: "Jordan Pass recommended for tourists" },
+            "Sydney Opera House": { normal_price: "49 AUD", reduced_price: "38 AUD", time: "9:00-17:00", comments: "Guided tour, performances extra" },
+            "Christ the Redeemer": { normal_price: "28 USD", reduced_price: "14 USD", time: "8:00-19:00", comments: "Cog train or van from Rio" },
+            "Angkor Wat": { normal_price: "37 USD", reduced_price: "0", time: "5:00-17:30", comments: "One day pass, free for children under 12" },
+            "Forbidden City": { normal_price: "60 CNY", reduced_price: "30 CNY", time: "8:30-17:00", comments: "Beijing, closed on Mondays, book online" },
+            "Tokyo Skytree": { normal_price: "3100 JPY", reduced_price: "1550 JPY", time: "10:00-22:00", comments: "Tembo Deck 350m, Galleria 450m extra" },
+            "Marina Bay Sands": { normal_price: "32 SGD", reduced_price: "26 SGD", time: "11:00-21:00", comments: "SkyPark observation deck Singapore" },
+            "Borobudur": { normal_price: "25 USD", reduced_price: "15 USD", time: "6:30-16:30", comments: "Indonesia, sunrise tour extra fee" },
+            "Buckingham Palace": { normal_price: "35 GBP", reduced_price: "19 GBP", time: "9:30-19:30", comments: "Open July-September only" },
+            "Arc de Triomphe": { normal_price: "16 EUR", reduced_price: "0", time: "10:00-22:30", comments: "Free for EU citizens under 26" },
+            "Mount Rushmore": { normal_price: "0", reduced_price: "0", time: "5:00-23:00", comments: "Free entry, parking fee 10 USD" },
+        };
+
+        const STEPS = [
+            { label: "Uploading to Azure Blob Storage", icon: "📦", service: "Azure Blob Storage" },
+            { label: "AI analyzing image...", icon: "🧠", service: "Azure AI Vision" },
+            { label: "Extracting landmark name", icon: "🏛️", service: "Azure Logic Apps" },
+            { label: "Fetching ticket prices", icon: "💰", service: "Azure Table Storage" },
+            { label: "Saving results to storage", icon: "💾", service: "Azure Blob Storage" },
+        ];
+
+        let currentFile = null;
+
+        // Drag & Drop
+        const zone = document.getElementById('uploadZone');
+        zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            currentFile = file;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('previewImage').src = e.target.result;
+                document.getElementById('uploadZone').classList.add('hidden');
+                document.getElementById('previewSection').classList.remove('hidden');
+                document.getElementById('analyzeBtn').classList.remove('hidden');
+                document.getElementById('pipelineSection').classList.add('hidden');
+                document.getElementById('resultSection').classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function startAnalysis() {
+            document.getElementById('analyzeBtn').classList.add('hidden');
+            document.getElementById('pipelineSection').classList.remove('hidden');
+            document.getElementById('resultSection').classList.add('hidden');
+
+            // Render steps
+            const stepsEl = document.getElementById('steps');
+            stepsEl.innerHTML = STEPS.map((s, i) => `
+                <div class="step pending" id="step-${i}">
+                    <div class="step-icon">${s.icon}</div>
+                    <div>
+                        <div class="step-label">${s.label}</div>
+                        <div class="step-service">${s.service}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Animate through steps
+            for (let i = 0; i < STEPS.length; i++) {
+                const stepEl = document.getElementById(`step-${i}`);
+                stepEl.className = 'step active';
+                stepEl.querySelector('.step-icon').innerHTML = '<div class="spinner"></div>';
+
+                await sleep(700 + Math.random() * 800);
+
+                stepEl.className = 'step done';
+                stepEl.querySelector('.step-icon').innerHTML = '✅';
+            }
+
+            // Pick random monument for demo
+            const names = Object.keys(MONUMENTS);
+            const name = names[Math.floor(Math.random() * names.length)];
+            const data = MONUMENTS[name];
+            const confidence = (0.95 + Math.random() * 0.049).toFixed(4);
+
+            showResult(name, confidence, data);
+        }
+
+        function showResult(name, confidence, data) {
+            const section = document.getElementById('resultSection');
+            section.classList.remove('hidden');
+            section.innerHTML = `
+                <div class="result-card">
+                    <div class="result-header">
+                        <span class="emoji">🏛️</span>
+                        <div>
+                            <h2>${name}</h2>
+                            <span class="confidence">${(confidence * 100).toFixed(1)}% match</span>
+                        </div>
+                    </div>
+                    <div class="result-grid">
+                        <div class="result-item">
+                            <div class="label">🎫 Normal ticket</div>
+                            <div class="value price">${data.normal_price || 'Free'}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="label">🏷️ Reduced ticket</div>
+                            <div class="value price">${data.reduced_price || 'Free'}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="label">🕐 Opening hours</div>
+                            <div class="value">${data.time}</div>
+                        </div>
+                        <div class="result-item full">
+                            <div class="label">ℹ️ Additional info</div>
+                            <div class="value">${data.comments}</div>
+                        </div>
+                    </div>
+                    <div class="tech-note">
+                        💡 In production, this photo would be uploaded to <strong>Azure Blob Storage</strong>,
+                        analyzed by <strong>Azure AI Vision</strong> (landmark detection),
+                        enriched with ticket pricing from <strong>Azure Table Storage</strong>,
+                        all orchestrated by <strong>Azure Logic Apps</strong>.
+                        The live pipeline processes images in ~1.4 seconds.
+                    </div>
+                </div>
+            `;
+        }
+
+        function resetAll() {
+            currentFile = null;
+            document.getElementById('uploadZone').classList.remove('hidden');
+            document.getElementById('previewSection').classList.add('hidden');
+            document.getElementById('fileInput').value = '';
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    </script>
+</body>
+</html>
