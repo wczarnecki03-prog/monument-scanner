@@ -336,7 +336,7 @@
 
         <!-- Footer -->
         <div class="footer">
-            Cloud Computing Project &bull; University of Gdansk &bull; Wojciech Czarnecki<br>
+            Cloud Computing Project &bull; University of Gdansk &bull; dr Dariusz Kralewski<br>
             Azure Blob Storage &bull; Azure AI Vision &bull; Azure Table Storage &bull; Azure Logic Apps
         </div>
     </div>
@@ -432,44 +432,76 @@
         }
 
         function findMonumentInDB(azureResult) {
-            // Try to match Azure landmark result with our database
             const landmarks = azureResult?.categories?.flatMap(c => c?.detail?.landmarks || []) || [];
             const description = azureResult?.description?.captions?.[0]?.text || "";
             const tags = azureResult?.tags?.map(t => t.name) || [];
 
-            // Check landmarks first (most accurate)
-            for (const landmark of landmarks) {
-                const name = landmark.name;
-                const confidence = landmark.confidence;
-                // Try exact match
-                if (MONUMENTS[name]) return { name, confidence, data: MONUMENTS[name] };
-                // Try partial match
-                for (const key of Object.keys(MONUMENTS)) {
-                    if (name.toLowerCase().includes(key.toLowerCase()) ||
-                        key.toLowerCase().includes(name.toLowerCase())) {
-                        return { name: key, confidence, data: MONUMENTS[key] };
-                    }
+            console.log("Azure landmarks:", JSON.stringify(landmarks));
+            console.log("Azure description:", description);
+            console.log("Azure tags:", tags);
+
+            // Helper: score how well two strings match (word overlap)
+            function matchScore(a, b) {
+                const wordsA = a.toLowerCase().split(/\s+/);
+                const wordsB = b.toLowerCase().split(/\s+/);
+                let score = 0;
+                for (const w of wordsA) {
+                    if (w.length > 2 && wordsB.some(wb => wb.includes(w) || w.includes(wb))) score++;
                 }
-                // Landmark detected but not in DB — return with generic info
-                if (name && confidence > 0.3) {
+                return score;
+            }
+
+            // Find best DB match for a given detected name
+            function bestDBMatch(detectedName) {
+                let best = null, bestScore = 0;
+                for (const key of Object.keys(MONUMENTS)) {
+                    const score = matchScore(detectedName, key);
+                    if (score > bestScore) { bestScore = score; best = key; }
+                }
+                return bestScore > 0 ? { name: best, data: MONUMENTS[best] } : null;
+            }
+
+            // 1. Try landmarks (sorted by confidence)
+            const sorted = [...landmarks].sort((a, b) => b.confidence - a.confidence);
+            for (const landmark of sorted) {
+                const detected = landmark.name;
+                const confidence = landmark.confidence;
+                if (!detected) continue;
+
+                // Exact match
+                if (MONUMENTS[detected]) {
+                    return { name: detected, confidence, data: MONUMENTS[detected] };
+                }
+                // Word-overlap match
+                const match = bestDBMatch(detected);
+                if (match) {
+                    return { name: match.name, confidence, data: match.data };
+                }
+                // Unknown landmark — show it anyway
+                if (confidence > 0.2) {
                     return {
-                        name,
+                        name: detected,
                         confidence,
                         data: {
                             normal_price: "Check official website",
                             reduced_price: "Check official website",
                             time: "Check official website",
-                            comments: `Detected by Azure AI Vision. Tags: ${tags.slice(0,4).join(", ")}`
+                            comments: `Detected by Azure AI Vision. Tags: ${tags.slice(0,5).join(", ")}`
                         }
                     };
                 }
             }
 
-            // No landmark — use description tags
-            for (const key of Object.keys(MONUMENTS)) {
-                if (description.toLowerCase().includes(key.toLowerCase())) {
-                    return { name: key, confidence: 0.75, data: MONUMENTS[key] };
-                }
+            // 2. Try description text
+            const descMatch = bestDBMatch(description);
+            if (descMatch && matchScore(description, descMatch.name) > 0) {
+                return { name: descMatch.name, confidence: 0.72, data: descMatch.data };
+            }
+
+            // 3. Try tags
+            for (const tag of tags) {
+                const m = bestDBMatch(tag);
+                if (m) return { name: m.name, confidence: 0.60, data: m.data };
             }
 
             return null;
